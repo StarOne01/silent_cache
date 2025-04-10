@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  provider: ^6.1.4
+  shared_preferences: ^2.5.3
+  timeago: ^3.7.0
+  uuid: ^4.5.1
 
 dev_dependencies:
   flutter_test:
