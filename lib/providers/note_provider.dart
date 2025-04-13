@@ -3,116 +3,191 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note_model.dart';
 
-class NoteProvider with ChangeNotifier {
+class NoteProvider extends ChangeNotifier {
   List<Note> _notes = [];
-  List<String> _folders = ['/'];
-  String _currentFolder = '/';
+  String _currentFolder = '/'; // Root folder by default
 
-  List<Note> get notes => _notes
-      .where((note) =>
-          note.folderPath == _currentFolder ||
-          (_currentFolder == '/' && note.folderPath == null))
-      .toList();
-
-  List<Note> get allNotes => _notes;
-  List<String> get folders => _folders;
+  List<Note> get notes => _notes;
   String get currentFolder => _currentFolder;
 
-  void setCurrentFolder(String folder) {
-    _currentFolder = folder;
+  // Set current folder and notify listeners
+  void setCurrentFolder(String folderPath) {
+    _currentFolder = folderPath;
     notifyListeners();
   }
 
-  Future<void> loadNotes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final notesJson = prefs.getStringList('notes');
-    final foldersJson = prefs.getStringList('folders');
-
-    if (notesJson != null) {
-      _notes = notesJson
-          .map((noteJson) => Note.fromJson(json.decode(noteJson)))
-          .toList();
+  // Get notes for the current folder
+  List<Note> getNotesByFolder(String folderPath) {
+    if (folderPath == '/') {
+      return _notes; // Return all notes for the root folder
     }
-
-    if (foldersJson != null) {
-      _folders = foldersJson;
-    }
-
-    notifyListeners();
+    return _notes.where((note) => note.folderPath == folderPath).toList();
   }
 
-  Future<void> saveNotes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final notesJson = _notes.map((note) => json.encode(note.toJson())).toList();
-
-    await prefs.setStringList('notes', notesJson);
-    await prefs.setStringList('folders', _folders);
+  // Get all folders
+  Set<String> get folders {
+    Set<String> result = {'/'}; // Root folder is always present
+    for (var note in _notes) {
+      if (note.folderPath != null && note.folderPath!.isNotEmpty) {
+        result.add(note.folderPath!);
+      }
+    }
+    return result;
   }
 
+  // Add note
   void addNote(Note note) {
     _notes.add(note);
+    _saveToDisk();
     notifyListeners();
-    saveNotes();
   }
 
-  void updateNote(String id, String title, String content) {
-    final noteIndex = _notes.indexWhere((note) => note.id == id);
-    if (noteIndex >= 0) {
-      _notes[noteIndex] = _notes[noteIndex].copyWith(
-        title: title,
-        content: content,
-      );
+  // Update note
+  void updateNote(Note updatedNote) {
+    final index = _notes.indexWhere((note) => note.id == updatedNote.id);
+    if (index >= 0) {
+      _notes[index] = updatedNote;
+      _saveToDisk();
       notifyListeners();
-      saveNotes();
     }
   }
 
+  // Delete note
   void deleteNote(String id) {
     _notes.removeWhere((note) => note.id == id);
+    _saveToDisk();
     notifyListeners();
-    saveNotes();
   }
 
-  void moveNote(String id, String? folderPath) {
-    final noteIndex = _notes.indexWhere((note) => note.id == id);
-    if (noteIndex >= 0) {
-      _notes[noteIndex] = _notes[noteIndex].copyWith(folderPath: folderPath);
+  // Toggle pin status
+  void togglePin(String id) {
+    final index = _notes.indexWhere((note) => note.id == id);
+    if (index >= 0) {
+      _notes[index].isPinned = !_notes[index].isPinned;
+      _saveToDisk();
       notifyListeners();
-      saveNotes();
     }
+  }
+
+  // Toggle favorite status
+  void toggleFavorite(String id) {
+    final index = _notes.indexWhere((note) => note.id == id);
+    if (index >= 0) {
+      _notes[index].isFavorite = !_notes[index].isFavorite;
+      _saveToDisk();
+      notifyListeners();
+    }
+  }
+
+  // Search notes
+  List<Note> searchNotes(String query) {
+    if (query.isEmpty) return _notes;
+
+    final lowerCaseQuery = query.toLowerCase();
+    return _notes.where((note) {
+      return note.title.toLowerCase().contains(lowerCaseQuery) ||
+          note.content.toLowerCase().contains(lowerCaseQuery);
+    }).toList();
+  }
+
+  // Sort notes by date
+  void sortNotesByDate({bool ascending = true}) {
+    if (ascending) {
+      _notes.sort((a, b) => a.dateModified.compareTo(b.dateModified));
+    } else {
+      _notes.sort((a, b) => b.dateModified.compareTo(a.dateModified));
+    }
+    notifyListeners();
+  }
+
+  // Sort notes by title
+  void sortNotesByTitle({bool ascending = true}) {
+    if (ascending) {
+      _notes.sort((a, b) => a.title.compareTo(b.title));
+    } else {
+      _notes.sort((a, b) => b.title.compareTo(a.title));
+    }
+    notifyListeners();
+  }
+
+  // Load notes from storage
+  Future<void> loadNotes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notesJson = prefs.getString('notes');
+
+      if (notesJson != null) {
+        final notesData = json.decode(notesJson) as List<dynamic>;
+        _notes = notesData.map((noteJson) => Note.fromJson(noteJson)).toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading notes: $e');
+    }
+  }
+
+  // Save notes to disk
+  Future<void> _saveToDisk() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notesData = _notes.map((note) => note.toJson()).toList();
+      await prefs.setString('notes', json.encode(notesData));
+    } catch (e) {
+      debugPrint('Error saving notes: $e');
+    }
+  }
+
+  // Create a new folder
+  void createFolder(String folderPath) {
+    // Nothing to do here but notify listeners
+    notifyListeners();
+  }
+
+  // Delete folder and all notes in it
+  void deleteFolder(String folderPath) {
+    _notes.removeWhere((note) => note.folderPath == folderPath);
+    _saveToDisk();
+    notifyListeners();
+  }
+
+  // Move note to a different folder
+  void moveNoteToFolder(String noteId, String? destinationFolder) {
+    final index = _notes.indexWhere((note) => note.id == noteId);
+    if (index >= 0) {
+      _notes[index] = _notes[index].copyWith(folderPath: destinationFolder);
+      _saveToDisk();
+      notifyListeners();
+    }
+  }
+
+  // Get all favorite notes
+  List<Note> get favoritedNotes {
+    return _notes.where((note) => note.isFavorite).toList();
   }
 
   void addFolder(String folderName) {
-    if (!_folders.contains(folderName)) {
-      _folders.add(folderName);
+    if (!folders.contains(folderName)) {
+      _currentFolder = folderName;
       notifyListeners();
-      saveNotes();
     }
   }
 
-  void removeFolder(String folderName) {
-    if (folderName != '/') {
-      _folders.remove(folderName);
+  void removeFolder(String folderPath) {
+    if (folderPath != '/') {
       // Move all notes from this folder to root
-      for (int i = 0; i < _notes.length; i++) {
-        if (_notes[i].folderPath == folderName) {
-          _notes[i] = _notes[i].copyWith(folderPath: null);
-        }
+      final notesInFolder =
+          _notes.where((note) => note.folderPath == folderPath).toList();
+      for (var note in notesInFolder) {
+        note = note.copyWith(folderPath: '/');
       }
+
+      // Set current folder to root if we're in the deleted folder
+      if (_currentFolder == folderPath) {
+        _currentFolder = '/';
+      }
+
+      _saveToDisk();
       notifyListeners();
-      saveNotes();
     }
-  }
-
-  List<Note> searchNotes(String query) {
-    if (query.isEmpty) {
-      return [];
-    }
-
-    return _notes
-        .where((note) =>
-            note.title.toLowerCase().contains(query.toLowerCase()) ||
-            note.content.toLowerCase().contains(query.toLowerCase()))
-        .toList();
   }
 }

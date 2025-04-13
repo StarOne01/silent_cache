@@ -1,122 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../models/note_model.dart';
 import '../screens/note_editor_screen.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'dart:ui';
 
-class NoteList extends StatefulWidget {
+class NoteList extends StatelessWidget {
   final List<Note> notes;
+  final bool showFolderName;
 
   const NoteList({
     super.key,
     required this.notes,
+    this.showFolderName = false,
   });
 
   @override
-  State<NoteList> createState() => _NoteListState();
-}
-
-class _NoteListState extends State<NoteList> {
-  bool _isGridView = true;
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.notes.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.note_alt_outlined, size: 80, color: Color(0xFF333340)),
-            SizedBox(height: 16),
-            Text(
-              'No notes in this folder',
-              style: TextStyle(
-                color: Color(0xFF7A6BFF),
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                icon: Icon(
-                  _isGridView ? Icons.view_list : Icons.grid_view,
-                  color: const Color(0xFF7A6BFF),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isGridView = !_isGridView;
-                  });
-                },
-                tooltip: _isGridView ? 'List View' : 'Grid View',
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _isGridView ? _buildGridView() : _buildListView(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGridView() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1,
-      ),
-      itemCount: widget.notes.length,
-      itemBuilder: (context, index) {
-        final note = widget.notes[index];
-
-        return _buildNoteCard(note);
-      },
-    );
-  }
-
-  Widget _buildListView() {
     return ListView.builder(
-      itemCount: widget.notes.length,
+      padding: const EdgeInsets.all(8.0),
+      itemCount: notes.length,
       itemBuilder: (context, index) {
-        final note = widget.notes[index];
-
-        return ListTile(
-          title: Text(
-            note.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white),
-          ),
-          subtitle: Text(
-            _getPreviewText(note.content),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white60),
-          ),
-          trailing: Text(
-            timeago.format(note.updatedAt),
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF7A6BFF),
-            ),
-          ),
+        final note = notes[index];
+        return SciFiNoteCard(
+          note: note,
+          showFolderName: showFolderName,
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => NoteEditorScreen(note: note),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    NoteEditorScreen(note: note),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                  var begin = const Offset(1.0, 0.0);
+                  var end = Offset.zero;
+                  var curve = Curves.easeInOut;
+                  var tween = Tween(begin: begin, end: end)
+                      .chain(CurveTween(curve: curve));
+                  var offsetAnimation = animation.drive(tween);
+                  return SlideTransition(
+                      position: offsetAnimation, child: child);
+                },
+                transitionDuration: const Duration(milliseconds: 300),
               ),
             );
           },
@@ -124,78 +49,239 @@ class _NoteListState extends State<NoteList> {
       },
     );
   }
+}
 
-  Widget _buildNoteCard(Note note) {
-    return Card(
-      color: const Color(0xFF1C1C22),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: const Color(0xFF333340).withOpacity(0.5),
-          width: 1,
-        ),
-      ),
-      elevation: 0,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => NoteEditorScreen(note: note),
+class SciFiNoteCard extends StatefulWidget {
+  final Note note;
+  final bool showFolderName;
+  final VoidCallback onTap;
+
+  const SciFiNoteCard({
+    super.key,
+    required this.note,
+    required this.onTap,
+    this.showFolderName = false,
+  });
+
+  @override
+  State<SciFiNoteCard> createState() => _SciFiNoteCardState();
+}
+
+class _SciFiNoteCardState extends State<SciFiNoteCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final note = widget.note;
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final preview = note.content.trim().isEmpty
+        ? 'No content'
+        : note.content.length > 100
+            ? '${note.content.substring(0, 100)}...'
+            : note.content;
+
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.1),
+              blurRadius: 8,
+              spreadRadius: -2,
+              offset: const Offset(0, 2),
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                note.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: note.isPinned
+                      ? primaryColor
+                      : primaryColor.withOpacity(0.3),
+                  width: note.isPinned ? 1.5 : 1,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Text(
-                  _getPreviewText(note.content),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white60,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onTap,
+                  splashColor: primaryColor.withOpacity(0.1),
+                  highlightColor: primaryColor.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                note.title,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (note.isPinned)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Icon(
+                                  Icons.push_pin,
+                                  color: primaryColor,
+                                  size: 16,
+                                ),
+                              ),
+                            if (note.isFavorite)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Icon(
+                                    Icons.favorite,
+                                    color: theme.colorScheme.error,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            preview,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.7),
+                              height: 1.4,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (widget.showFolderName &&
+                                note.folderPath != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: primaryColor.withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.folder,
+                                        size: 12, color: primaryColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      note.folderPath!.split('/').last,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: primaryColor.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const SizedBox.shrink(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.background
+                                    .withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 12,
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.6),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    timeago.format(note.dateModified),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  overflow: TextOverflow.fade,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                timeago.format(note.updatedAt),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF7A6BFF),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
-  }
-
-  String _getPreviewText(String content) {
-    // Remove markdown syntax for preview
-    String preview = content
-        .replaceAll(RegExp(r'#{1,6}\s'), '')
-        .replaceAll(RegExp(r'\*\*|\*|~~|`'), '')
-        .replaceAll(RegExp(r'\[.*?\]\(.*?\)'), '')
-        .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '')
-        .replaceAll(RegExp(r'\n{2,}'), '\n');
-
-    return preview;
   }
 }

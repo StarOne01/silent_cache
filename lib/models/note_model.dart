@@ -4,77 +4,70 @@ class Note {
   final String id;
   String title;
   String content;
-  DateTime createdAt;
-  DateTime updatedAt;
+  final DateTime dateCreated;
+  DateTime dateModified;
+  bool isPinned;
   bool isFavorite;
   String? folderPath;
-  List<String> tags;
 
   Note({
     String? id,
     required this.title,
     required this.content,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    DateTime? dateCreated,
+    DateTime? dateModified,
+    this.isPinned = false,
     this.isFavorite = false,
-    this.tags = const [],
     this.folderPath,
-  })  : this.id = id ?? Uuid().v4(),
-        this.createdAt = createdAt ?? DateTime.now(),
-        this.updatedAt = updatedAt ?? DateTime.now();
+  })  : id = id ?? const Uuid().v4(),
+        dateCreated = dateCreated ?? DateTime.now(),
+        dateModified = dateModified ?? DateTime.now();
 
-  Note copyWith({
-    String? title,
-    String? content,
-    DateTime? updatedAt,
-    bool? isFavorite,
-    List<String>? tags,
-    String? folderPath,
-  }) {
-    return Note(
-      id: this.id,
-      title: title ?? this.title,
-      content: content ?? this.content,
-      createdAt: this.createdAt,
-      updatedAt: updatedAt ?? DateTime.now(),
-      isFavorite: isFavorite ?? this.isFavorite,
-      tags: tags ?? this.tags,
-      folderPath: folderPath ?? this.folderPath,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
+  // Convert Note to JSON for storage
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'title': title,
       'content': content,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'dateCreated': dateCreated.toIso8601String(),
+      'dateModified': dateModified.toIso8601String(),
+      'isPinned': isPinned,
       'isFavorite': isFavorite,
-      'tags': tags,
       'folderPath': folderPath,
     };
   }
 
-  Map<String, dynamic> toJson() => toMap();
-
-  factory Note.fromMap(Map<String, dynamic> map) {
+  // Create a Note from JSON data
+  factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      id: map['id'],
-      title: map['title'],
-      content: map['content'],
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt']),
-      isFavorite: map['isFavorite'] ?? false,
-      tags: List<String>.from(map['tags'] ?? []),
-      folderPath: map['folderPath'],
+      id: json['id'],
+      title: json['title'],
+      content: json['content'],
+      dateCreated: DateTime.parse(json['dateCreated']),
+      dateModified: DateTime.parse(json['dateModified']),
+      isPinned: json['isPinned'] ?? false,
+      isFavorite: json['isFavorite'] ?? false,
+      folderPath: json['folderPath'],
     );
   }
 
-  factory Note.fromJson(Map<String, dynamic> json) => Note.fromMap(json);
-
-  @override
-  String toString() {
-    return 'Note(id: $id, title: $title, folderPath: $folderPath)';
+  // Create a copy of this note with optional changes
+  Note copyWith({
+    String? title,
+    String? content,
+    bool? isPinned,
+    bool? isFavorite,
+    String? folderPath,
+  }) {
+    return Note(
+      id: id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      dateCreated: dateCreated,
+      dateModified: DateTime.now(),
+      isPinned: isPinned ?? this.isPinned,
+      isFavorite: isFavorite ?? this.isFavorite,
+      folderPath: folderPath ?? this.folderPath,
+    );
   }
 }

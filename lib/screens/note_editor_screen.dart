@@ -1,322 +1,610 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/note_model.dart';
 import '../providers/note_provider.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'dart:ui';
 
 class NoteEditorScreen extends StatefulWidget {
   final Note note;
 
-  const NoteEditorScreen({
-    super.key,
-    required this.note,
-  });
+  const NoteEditorScreen({super.key, required this.note});
 
   @override
   State<NoteEditorScreen> createState() => _NoteEditorScreenState();
 }
 
-class _NoteEditorScreenState extends State<NoteEditorScreen> {
+class _NoteEditorScreenState extends State<NoteEditorScreen>
+    with SingleTickerProviderStateMixin {
   late TextEditingController _titleController;
   late TextEditingController _contentController;
-  bool _isPreviewMode = false;
+  bool _isMarkdownView = false;
+  bool _isEdited = false;
+  late Note _currentNote;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.note.title);
-    _contentController = TextEditingController(text: widget.note.content);
+    _currentNote = widget.note;
+    _titleController = TextEditingController(text: _currentNote.title);
+    _contentController = TextEditingController(text: _currentNote.content);
+
+    _titleController.addListener(_markAsEdited);
+    _contentController.addListener(_markAsEdited);
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
-  void _saveNote() {
-    Provider.of<NoteProvider>(context, listen: false).updateNote(
-      widget.note.id,
-      _titleController.text,
-      _contentController.text,
-    );
-    Navigator.pop(context);
+  void _markAsEdited() {
+    if (!_isEdited &&
+        (_titleController.text != _currentNote.title ||
+            _contentController.text != _currentNote.content)) {
+      setState(() {
+        _isEdited = true;
+      });
+    }
   }
 
-  void _togglePreviewMode() {
+  void _saveNote() {
+    if (_isEdited) {
+      final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+      final updatedNote = _currentNote.copyWith(
+        title: _titleController.text,
+        content: _contentController.text,
+      );
+      noteProvider.updateNote(updatedNote);
+      setState(() {
+        _currentNote = updatedNote;
+        _isEdited = false;
+      });
+    }
+  }
+
+  void _deleteNote() {
+    showDialog(
+      context: context,
+      builder: (context) => SciFiAlertDialog(
+        title: 'Delete Note',
+        content:
+            'This action cannot be undone. Are you sure you want to delete this note?',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Provider.of<NoteProvider>(context, listen: false)
+                  .deleteNote(_currentNote.id);
+              Navigator.pop(context); // Go back
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _togglePin() {
+    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+    final updatedNote = _currentNote.copyWith(isPinned: !_currentNote.isPinned);
+    noteProvider.updateNote(updatedNote);
     setState(() {
-      _isPreviewMode = !_isPreviewMode;
+      _currentNote = updatedNote;
+    });
+  }
+
+  void _toggleFavorite() {
+    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+    final updatedNote =
+        _currentNote.copyWith(isFavorite: !_currentNote.isFavorite);
+    noteProvider.updateNote(updatedNote);
+    setState(() {
+      _currentNote = updatedNote;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF15151B), // Darker Obsidian background
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _saveNote,
-        ),
-        title: TextField(
-          controller: _titleController,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-          ),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            hintText: 'Note title',
-            hintStyle: TextStyle(color: Colors.white38),
-          ),
-          onChanged: (value) {
-            setState(() {
-              widget.note.title = value;
-              widget.note.updatedAt = DateTime.now();
-            });
-            _saveNote();
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isPreviewMode ? Icons.edit : Icons.remove_red_eye,
-              color: const Color(0xFF7A6BFF),
-            ),
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final backgroundColor = Theme.of(context).colorScheme.background;
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+
+    return FadeTransition(
+      opacity: _animation,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
             onPressed: () {
-              setState(() {
-                _isPreviewMode = !_isPreviewMode;
-              });
-            },
-            tooltip: _isPreviewMode ? 'Edit' : 'Preview',
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFF7A6BFF)),
-            onSelected: (value) {
-              if (value == 'delete') {
+              if (_isEdited) {
                 showDialog(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: const Color(0xFF1C1C22),
-                    title: const Text(
-                      'Delete Note',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: const Text(
-                      'Are you sure you want to delete this note?',
-                      style: TextStyle(color: Colors.white70),
-                    ),
+                  builder: (context) => SciFiAlertDialog(
+                    title: 'Save changes?',
+                    content:
+                        'You have unsaved changes. Do you want to save them before leaving?',
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.white70),
-                        ),
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          Navigator.pop(context); // Go back without saving
+                        },
+                        child: const Text('Discard'),
                       ),
                       TextButton(
                         onPressed: () {
-                          Provider.of<NoteProvider>(context, listen: false)
-                              .deleteNote(widget.note.id);
-                          Navigator.pop(context); // Close the dialog
-                          Navigator.pop(context); // Go back to the home screen
+                          Navigator.pop(context); // Close dialog
+                          _saveNote();
+                          Navigator.pop(context); // Go back after saving
                         },
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(color: Color(0xFF7A6BFF)),
-                        ),
+                        child: const Text('Save'),
                       ),
                     ],
                   ),
                 );
+              } else {
+                Navigator.pop(context);
               }
             },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
           ),
-        ],
-      ),
-      body: _isPreviewMode
-          ? Markdown(
-              data: _contentController.text,
-              selectable: true,
-              styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(color: Colors.white70, fontSize: 16),
-                h1: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 24),
-                h2: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 22),
-                h3: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 20),
-                h4: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 18),
-                h5: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 16),
-                h6: const TextStyle(color: Color(0xFF7A6BFF), fontSize: 14),
-                em: const TextStyle(
-                    color: Colors.white70, fontStyle: FontStyle.italic),
-                strong: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
-                blockquote: const TextStyle(color: Colors.white60),
-                blockquoteDecoration: BoxDecoration(
-                  color: const Color(0xFF1C1C22),
-                  borderRadius: BorderRadius.circular(4),
-                  border: const Border(
-                    left: BorderSide(
-                      color: Color(0xFF7A6BFF),
-                      width: 4,
-                    ),
+          title: const Text(
+            'Edit Note',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isMarkdownView ? Icons.edit : Icons.preview,
+                color: primaryColor,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isMarkdownView = !_isMarkdownView;
+                });
+              },
+            ),
+            IconButton(
+              icon: Icon(
+                _currentNote.isPinned
+                    ? Icons.push_pin
+                    : Icons.push_pin_outlined,
+                color: _currentNote.isPinned ? primaryColor : null,
+              ),
+              onPressed: _togglePin,
+            ),
+            IconButton(
+              icon: Icon(
+                _currentNote.isFavorite
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+                color: _currentNote.isFavorite
+                    ? Theme.of(context).colorScheme.error
+                    : null,
+              ),
+              onPressed: _toggleFavorite,
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: primaryColor),
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteNote();
+                } else if (value == 'share') {
+                  // Implement share functionality
+                } else if (value == 'move') {
+                  // Implement move to folder functionality
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'move',
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder),
+                      SizedBox(width: 8),
+                      Text('Move to folder'),
+                    ],
                   ),
                 ),
-                code: const TextStyle(
-                  backgroundColor: Color(0xFF272730),
-                  color: Color(0xFF7A6BFF),
+                const PopupMenuItem(
+                  value: 'share',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share),
+                      SizedBox(width: 8),
+                      Text('Share'),
+                    ],
+                  ),
                 ),
-                codeblockDecoration: BoxDecoration(
-                  color: const Color(0xFF272730),
-                  borderRadius: BorderRadius.circular(4),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      const SizedBox(width: 8),
+                      const Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
                 ),
-                a: const TextStyle(color: Color(0xFF7A6BFF)),
-              ),
-            )
-          : Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _contentController,
-                keyboardType: TextInputType.multiline,
-                maxLines: null,
-                expands: true,
-                style: const TextStyle(color: Colors.white70),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Start writing...',
-                  hintStyle: TextStyle(color: Colors.white30),
-                ),
-              ),
+              ],
             ),
-      bottomNavigationBar: !_isPreviewMode
-          ? BottomAppBar(
-              color: const Color(0xFF1C1C22),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => _insertMarkdown('# '),
-                      child: const Text(
-                        'H1',
-                        style: TextStyle(
-                          color: Color(0xFF7A6BFF),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _insertMarkdown('## '),
-                      child: const Text(
-                        'H2',
-                        style: TextStyle(
-                          color: Color(0xFF7A6BFF),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Text(
-                        '**B**',
-                        style: TextStyle(
-                          color: Color(0xFF7A6BFF),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onPressed: () => _insertMarkdown('**', '**'),
-                      tooltip: 'Bold',
-                    ),
-                    IconButton(
-                      icon: const Text(
-                        '*I*',
-                        style: TextStyle(
-                          color: Color(0xFF7A6BFF),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      onPressed: () => _insertMarkdown('*', '*'),
-                      tooltip: 'Italic',
-                    ),
-                    IconButton(
-                      icon: const Text(
-                        '~~S~~',
-                        style: TextStyle(
-                          color: Color(0xFF7A6BFF),
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                      onPressed: () => _insertMarkdown('~~', '~~'),
-                      tooltip: 'Strikethrough',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.code, color: Color(0xFF7A6BFF)),
-                      onPressed: () => _insertMarkdown('`', '`'),
-                      tooltip: 'Inline Code',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.format_list_bulleted,
-                          color: Color(0xFF7A6BFF)),
-                      onPressed: () => _insertMarkdown('- '),
-                      tooltip: 'Bullet List',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.format_list_numbered,
-                          color: Color(0xFF7A6BFF)),
-                      onPressed: () => _insertMarkdown('1. '),
-                      tooltip: 'Numbered List',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.link, color: Color(0xFF7A6BFF)),
-                      onPressed: () => _insertMarkdown('[', '](url)'),
-                      tooltip: 'Link',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.image, color: Color(0xFF7A6BFF)),
-                      onPressed: () => _insertMarkdown('![alt text](', ')'),
-                      tooltip: 'Image',
-                    ),
-                  ],
-                ),
+          ],
+        ),
+        body: _isMarkdownView ? _buildMarkdownView() : _buildEditView(),
+        floatingActionButton: _isMarkdownView
+            ? null
+            : FloatingActionButton(
+                onPressed: _saveNote,
+                backgroundColor: primaryColor,
+                child: const Icon(Icons.save, color: Colors.black),
               ),
-            )
-          : null,
+      ),
     );
   }
 
-  void _insertMarkdown(String prefix, [String? suffix]) {
-    final text = _contentController.text;
-    final selection = _contentController.selection;
+  Widget _buildEditView() {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final backgroundColor = Theme.of(context).colorScheme.background;
 
-    final beforeText = text.substring(0, selection.start);
-    final selectedText = text.substring(selection.start, selection.end);
-    final afterText = text.substring(selection.end);
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        image: DecorationImage(
+          image: const AssetImage('assets/images/grid_pattern.png'),
+          fit: BoxFit.cover,
+          opacity: 0.03,
+          colorFilter: ColorFilter.mode(primaryColor, BlendMode.srcIn),
+        ),
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color:
+                        Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: primaryColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.1),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _titleController,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      letterSpacing: 0.5,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Title',
+                      hintStyle: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.5),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.1),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _contentController,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        height: 1.5,
+                      ),
+                      maxLines: null,
+                      expands: true,
+                      decoration: InputDecoration(
+                        hintText: 'Write your note here...',
+                        hintStyle: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.5),
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-    final newText = suffix == null
-        ? beforeText + prefix + selectedText + afterText
-        : beforeText + prefix + selectedText + suffix + afterText;
+  Widget _buildMarkdownView() {
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    _contentController.value = _contentController.value.copyWith(
-      text: newText,
-      selection: TextSelection.collapsed(
-        offset: selection.baseOffset +
-            prefix.length +
-            selectedText.length +
-            (suffix?.length ?? 0),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.background,
+        image: DecorationImage(
+          image: const AssetImage('assets/images/grid_pattern.png'),
+          fit: BoxFit.cover,
+          opacity: 0.03,
+          colorFilter: ColorFilter.mode(primaryColor, BlendMode.srcIn),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: primaryColor.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.1),
+                    blurRadius: 8,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Text(
+                _titleController.text,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: primaryColor.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.1),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Markdown(
+                  data: _contentController.text,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      height: 1.5,
+                    ),
+                    h1: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                    h2: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    h3: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    blockquote: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.7),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    code: TextStyle(
+                      backgroundColor: primaryColor.withOpacity(0.1),
+                      color: primaryColor,
+                      fontFamily: 'monospace',
+                    ),
+                    codeblockPadding: const EdgeInsets.all(12),
+                    codeblockDecoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    tableHead: TextStyle(fontWeight: FontWeight.bold),
+                    tableBody: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    horizontalRuleDecoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: primaryColor.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SciFiAlertDialog extends StatelessWidget {
+  final String title;
+  final String content;
+  final List<Widget> actions;
+
+  const SciFiAlertDialog({
+    super.key,
+    required this.title,
+    required this.content,
+    required this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: primaryColor.withOpacity(0.5),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.2),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color:
+                    Theme.of(context).colorScheme.background.withOpacity(0.5),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                content,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color:
+                    Theme.of(context).colorScheme.background.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: actions,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

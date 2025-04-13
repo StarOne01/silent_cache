@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 
-class NotesSearchBar extends StatefulWidget {
+class CustomSearchBar extends StatefulWidget {
   final Function(String) onSearch;
-  final VoidCallback onClear;
+  final String hint;
 
-  const NotesSearchBar({
+  const CustomSearchBar({
     super.key,
     required this.onSearch,
-    required this.onClear,
+    required this.hint,
   });
 
   @override
-  State<NotesSearchBar> createState() => _NotesSearchBarState();
+  State<CustomSearchBar> createState() => _CustomSearchBarState();
 }
 
-class _NotesSearchBarState extends State<NotesSearchBar> {
+class _CustomSearchBarState extends State<CustomSearchBar> {
   final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      widget.onSearch(_controller.text);
+    });
+  }
 
   @override
   void dispose() {
@@ -26,32 +34,28 @@ class _NotesSearchBarState extends State<NotesSearchBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      height: 48,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: TextField(
         controller: _controller,
         decoration: InputDecoration(
-          hintText: 'Search notes...',
+          hintText: widget.hint,
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _controller.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear),
                   onPressed: () {
                     _controller.clear();
-                    widget.onClear();
                   },
                 )
               : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(50),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.1),
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
-        onChanged: (value) {
-          widget.onSearch(value);
-        },
       ),
     );
   }
