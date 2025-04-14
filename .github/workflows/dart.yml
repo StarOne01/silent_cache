@@ -36,7 +36,7 @@ jobs:
           Compress-Archive -Path * -DestinationPath ..\..\..\..\flutter_windows_app.zip
 
       - name: Upload Windows app
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: flutter_windows_app.zip
@@ -86,7 +86,7 @@ jobs:
           tar -czf ../../../../../flutter_linux_app.tar.gz .
 
       - name: Upload Linux app
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-release
           path: flutter_linux_app.tar.gz
@@ -139,7 +139,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
