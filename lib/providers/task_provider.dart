@@ -62,6 +62,22 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  Task createNewTask() {
+    final newTask = Task(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'New Task',
+      isCompleted: false,
+      priority: 1, // 1 = medium priority
+      category: currentCategory == 'All' ? 'Personal' : currentCategory,
+      dateCreated: DateTime.now(),
+    );
+
+    _tasks.add(newTask);
+    notifyListeners();
+    _saveToDisk();
+    return newTask;
+  }
+
   // Search tasks
   List<Task> searchTasks(String query) {
     if (query.isEmpty) return _tasks;

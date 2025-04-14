@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/note_provider.dart';
 import '../models/note_model.dart';
 import 'note_editor_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/folder_list.dart';
 import '../widgets/note_list.dart';
 import '../widgets/search_bar.dart';
@@ -101,9 +102,14 @@ class _NotesViewState extends State<NotesView> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.sort),
+            icon: const Icon(Icons.settings),
             onPressed: () {
-              _showSortOptions(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -165,76 +171,13 @@ class _NotesViewState extends State<NotesView> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewNote,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  void _showSortOptions(BuildContext context) {
-    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Sort Notes By',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Date Created (Newest First)'),
-              onTap: () {
-                noteProvider.sortNotesByDate(ascending: false);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today_outlined),
-              title: const Text('Date Created (Oldest First)'),
-              onTap: () {
-                noteProvider.sortNotesByDate(ascending: true);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.title),
-              title: const Text('Title (A to Z)'),
-              onTap: () {
-                noteProvider.sortNotesByTitle(ascending: true);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.title_outlined),
-              title: const Text('Title (Z to A)'),
-              onTap: () {
-                noteProvider.sortNotesByTitle(ascending: false);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
 
+// Search delegate remains the same
 class NoteSearchDelegate extends SearchDelegate<String> {
+  // ...existing code...
   final NoteProvider noteProvider;
 
   NoteSearchDelegate(this.noteProvider);

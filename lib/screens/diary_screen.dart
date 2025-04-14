@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/note_provider.dart';
 import '../models/note_model.dart';
 import 'note_editor_screen.dart';
+import 'settings_screen.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({Key? key}) : super(key: key);
@@ -40,7 +41,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
   Widget build(BuildContext context) {
     // Access the existing provider that's established in main.dart
     final noteProvider = Provider.of<NoteProvider>(context);
-    
+
     // Create a diary folder if it doesn't exist
     if (!noteProvider.folders.contains('/Diary')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -48,7 +49,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         noteProvider.setCurrentFolder('/Diary');
       });
     }
-    
+
     final diaryEntries = noteProvider.notes
         .where((note) => note.folderPath == '/Diary')
         .toList();
@@ -70,9 +71,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.sort),
+            icon: const Icon(Icons.settings),
             onPressed: () {
-              _showSortOptions(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -85,10 +91,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
                   Icon(
                     Icons.book,
                     size: 64,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withOpacity(0.5),
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -124,11 +128,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 return _buildDiaryEntryCard(entry);
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewDiaryEntry,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.add),
-      ),
+      // Removed the floating action button
     );
   }
 
@@ -216,49 +216,5 @@ class _DiaryScreenState extends State<DiaryScreen> {
       'December'
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-
-  void _showSortOptions(BuildContext context) {
-    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Sort Entries By',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Date Created (Newest First)'),
-              onTap: () {
-                noteProvider.sortNotesByDate(ascending: false);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today_outlined),
-              title: const Text('Date Created (Oldest First)'),
-              onTap: () {
-                noteProvider.sortNotesByDate(ascending: true);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

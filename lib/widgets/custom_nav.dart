@@ -7,11 +7,13 @@ import '../providers/theme_provider.dart';
 class CustomNavBar extends StatefulWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final VoidCallback onCreateNew;
 
   const CustomNavBar({
     Key? key,
     required this.currentIndex,
     required this.onTap,
+    required this.onCreateNew,
   }) : super(key: key);
 
   @override
@@ -234,15 +236,12 @@ class _CustomNavBarState extends State<CustomNavBar>
   }
 
   Widget _buildMiddleButton(BuildContext context, Color accentColor) {
-    // Check if camera tab is selected
-    final isSelected = widget.currentIndex == 2;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
           HapticFeedback.mediumImpact();
-          widget.onTap(2);
+          widget.onCreateNew(); // Call the onCreateNew callback
         },
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
@@ -254,34 +253,31 @@ class _CustomNavBarState extends State<CustomNavBar>
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             builder: (context, double value, child) {
-              return Transform.scale(
-                scale: isSelected ? 1.0 + (0.1 * value) : 1.0,
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        accentColor,
-                        accentColor.withOpacity(0.8),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withOpacity(0.4),
-                        blurRadius: isSelected ? 15 * value : 10,
-                        spreadRadius: isSelected ? 2 * value : 1,
-                      ),
+              return Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      accentColor,
+                      accentColor.withOpacity(0.8),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(
-                    Icons.camera_alt_rounded,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    size: 28,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.4),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.add, // Changed to add icon
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 28,
                 ),
               );
             },

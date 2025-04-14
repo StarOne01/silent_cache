@@ -283,25 +283,7 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TaskEditorScreen(
-                task: Task(
-                  title: '',
-                  category: taskProvider.currentCategory == 'All'
-                      ? null
-                      : taskProvider.currentCategory,
-                ),
-              ),
-            ),
-          );
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.add),
-      ),
+      // Floating action button removed since we're using the nav center button
     );
   }
 }

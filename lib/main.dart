@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:silent_cache/screens/diary_screen.dart';
 import 'package:silent_cache/screens/tasks_screen.dart';
+import 'models/note_model.dart';
 import 'providers/theme_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/note_provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/note_editor_screen.dart';
 import 'widgets/custom_nav.dart';
 
 void main() async {
@@ -165,7 +167,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 4;
+  int _currentIndex = 0;
 
   final List<Widget> _screens = [
     const HomeScreen(),
@@ -174,6 +176,50 @@ class _MainScreenState extends State<MainScreen> {
     const TasksScreen(),
     const Scaffold(body: Center(child: Text('Settings')))
   ];
+
+  void _createNew() {
+    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+
+    if (_currentIndex == 0) {
+      // Create new note
+      final newNote = Note(
+        title: 'New Note',
+        content: '',
+        folderPath: noteProvider.currentFolder == '/'
+            ? null
+            : noteProvider.currentFolder,
+      );
+
+      noteProvider.addNote(newNote);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NoteEditorScreen(note: newNote),
+        ),
+      );
+    } else if (_currentIndex == 1) {
+      // Create new diary entry
+      final newNote = Note(
+        title: 'Diary Entry - ${DateTime.now().toString().substring(0, 10)}',
+        content: '',
+        folderPath: '/Diary',
+      );
+
+      noteProvider.addNote(newNote);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NoteEditorScreen(note: newNote),
+        ),
+      );
+    } else if (_currentIndex == 3) {
+      // Create new task
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      taskProvider.createNewTask();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,12 +235,11 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index >= 0 && index < _screens.length) {
-            setState(() {
-              _currentIndex = index;
-            });
-          }
+          setState(() {
+            _currentIndex = index;
+          });
         },
+        onCreateNew: _createNew,
       ),
     );
   }
