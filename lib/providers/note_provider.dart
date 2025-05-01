@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note_model.dart';
+import '../services/file_service.dart';
+import 'package:flutter/material.dart';
 
 class NoteProvider extends ChangeNotifier {
   List<Note> _notes = [];
@@ -38,6 +40,13 @@ class NoteProvider extends ChangeNotifier {
   // Add note
   void addNote(Note note) {
     _notes.add(note);
+    _saveToDisk();
+    notifyListeners();
+  }
+
+  // Add multiple notes
+  void addNotes(List<Note> notes) {
+    _notes.addAll(notes);
     _saveToDisk();
     notifyListeners();
   }
@@ -189,5 +198,78 @@ class NoteProvider extends ChangeNotifier {
       _saveToDisk();
       notifyListeners();
     }
+  }
+
+  // Export features
+  Future<String> exportNoteAsMarkdown(Note note) async {
+    return await FileService.exportNoteAsMarkdown(note);
+  }
+
+  Future<String> exportNoteAsText(Note note) async {
+    return await FileService.exportNoteAsText(note);
+  }
+
+  Future<String> exportAllNotesAsJson() async {
+    return await FileService.exportAllNotesAsJson(_notes);
+  }
+
+  Future<String> exportNotesAsCSV() async {
+    return await FileService.exportNotesAsCSV(_notes);
+  }
+
+  Future<String> createBackup() async {
+    return await FileService.createBackup(_notes);
+  }
+
+  // Import features
+  Future<bool> restoreBackup() async {
+    try {
+      final restoredNotes = await FileService.restoreBackup();
+      if (restoredNotes.isNotEmpty) {
+        _notes = restoredNotes;
+        _saveToDisk();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error restoring backup: $e');
+      return false;
+    }
+  }
+
+  Future<bool> importNotesFromJson() async {
+    try {
+      final importedNotes = await FileService.importNotesFromJson();
+      if (importedNotes.isNotEmpty) {
+        _notes.addAll(importedNotes);
+        _saveToDisk();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error importing notes: $e');
+      return false;
+    }
+  }
+
+  Future<bool> importNoteFromFile() async {
+    try {
+      final note = await FileService.importNoteFromFile();
+      if (note != null) {
+        addNote(note);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error importing note: $e');
+      return false;
+    }
+  }
+
+  // Share a note
+  Future<void> shareNote(Note note) async {
+    await FileService.shareNote(note);
   }
 }

@@ -1,4 +1,4 @@
-# Silent Cache 📝
+# Fosbidian 📝
 
 A minimalist, secure note-taking application built with Flutter, inspired by Obsidian's dark theme and functionality.
 

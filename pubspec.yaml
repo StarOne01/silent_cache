@@ -14,6 +14,15 @@ dependencies:
   shared_preferences: ^2.5.3
   timeago: ^3.7.0
   uuid: ^4.5.1
+  # Added packages for import/export functionality
+  path_provider: ^2.1.1
+  file_picker: ^6.1.1
+  share_plus: ^7.2.1
+  permission_handler: ^11.2.0
+  intl: ^0.19.0
+  flutter_archive: ^6.0.0
+  csv: ^5.1.1
+  url_launcher: ^6.2.2
 
 dev_dependencies:
   flutter_test:
