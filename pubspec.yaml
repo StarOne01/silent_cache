@@ -1,4 +1,4 @@
-name: silent_cache
+name: fosbidian
 description: "A minimalist, secure note-taking application built with Flutter, inspired by Obsidian's dark theme and functionality."
 publish_to: 'none'
 version: 0.1.0

@@ -22,12 +22,12 @@ A minimalist, secure note-taking application built with Flutter, inspired by Obs
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/silent_cache.git
+git clone https://github.com/yourusername/fosbidian.git
 ```
 
 2. Navigate to the project folder
 ```bash
-cd silent_cache
+cd fosbidian
 ```
 
 3. Install dependencies

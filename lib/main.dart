@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:silent_cache/screens/diary_screen.dart';
-import 'package:silent_cache/screens/tasks_screen.dart';
+import 'package:fosbidian/screens/diary_screen.dart';
+import 'package:fosbidian/screens/tasks_screen.dart';
 import 'models/note_model.dart';
 import 'providers/theme_provider.dart';
 import 'providers/task_provider.dart';

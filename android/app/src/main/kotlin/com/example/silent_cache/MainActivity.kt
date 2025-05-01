@@ -1,4 +1,4 @@
-package com.example.silent_cache
+package com.example.fosbidian
 
 import io.flutter.embedding.android.FlutterActivity
 
